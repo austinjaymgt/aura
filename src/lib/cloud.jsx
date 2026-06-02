@@ -82,22 +82,23 @@ export function useCloudState(key, initial) {
   return [value, setValue];
 }
 
-// ── Login screen ─────────────────────────────────────────────
+// ── Login screen (email + password) ──────────────────────────
 function Login() {
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const sendLink = async () => {
-    if (!email.trim()) return;
+  const signIn = async () => {
+    if (!email.trim() || !password) return;
     setLoading(true); setError("");
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
+      password,
     });
     setLoading(false);
-    error ? setError(error.message) : setSent(true);
+    if (error) setError(error.message);
+    // on success, RequireAuth flips you straight into the app
   };
 
   return (
@@ -105,21 +106,15 @@ function Login() {
       <div style={card}>
         <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 30, color: "#1a1a1a", marginBottom: 6 }}>Aura</div>
         <div style={{ fontSize: 14, color: "#aaa", marginBottom: 24 }}>Your private wellness tracker</div>
-        {sent ? (
-          <div style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-            Check your email — we sent a sign-in link to <strong>{email}</strong>. Tap it on this device to log in.
-          </div>
-        ) : (
-          <>
-            <input type="email" placeholder="you@email.com" value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendLink()} style={input} />
-            {error && <div style={{ color: "#d4614e", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-            <button onClick={sendLink} disabled={loading} style={btn}>
-              {loading ? "Sending…" : "Email me a magic link"}
-            </button>
-          </>
-        )}
+        <input type="email" placeholder="you@email.com" value={email} autoComplete="email"
+          onChange={(e) => setEmail(e.target.value)} style={input} />
+        <input type="password" placeholder="Password" value={password} autoComplete="current-password"
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && signIn()} style={input} />
+        {error && <div style={{ color: "#d4614e", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+        <button onClick={signIn} disabled={loading} style={btn}>
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useCloudState } from "./lib/cloud";
 
 // ── CONSTANTS ───────────────────────────────────────────────
 const DEFAULT_HABITS = [
@@ -51,14 +52,6 @@ const todayDayIdx = () => new Date().getDay() === 0 ? 6 : new Date().getDay() - 
 const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
 
 // ── HOOKS ───────────────────────────────────────────────────
-function useLocalStorage(key, init) {
-  const [val, setVal] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(key)) ?? init; }
-    catch { return init; }
-  });
-  useEffect(() => localStorage.setItem(key, JSON.stringify(val)), [key, val]);
-  return [val, setVal];
-}
 
 // ── SHARED COMPONENTS ───────────────────────────────────────
 function CardLabel({ children }) {
@@ -1423,20 +1416,20 @@ function MealPage({ mealPlan, setMealPlan }) {
 // ── ROOT APP ─────────────────────────────────────────────────
 export default function App() {
   const [page, setPage] = useState("today");
-  const [habits, setHabits] = useLocalStorage("habits_log", {});
-  const [habitList, setHabitList] = useLocalStorage("habit_list", DEFAULT_HABITS);
-  const [workoutPlan, setWorkoutPlan] = useLocalStorage("workout_plan_v2", DEFAULT_SCHEDULE.map(d => ({ ...d })));
-  const [workoutDone, setWorkoutDone] = useLocalStorage("workout_done", {});
-  const [protein, setProtein] = useLocalStorage("protein_log", {});
-  const [waterLog, setWaterLog] = useLocalStorage("water_log", {});
-  const [milesLog, setMilesLog] = useLocalStorage("miles_log", {});
-  const [challengeStart] = useLocalStorage("challenge_start", todayKey());
-  const [measurements, setMeasurements] = useLocalStorage("measurements", []);
-  const [beautyLog, setBeautyLog] = useLocalStorage("beauty_log", {});
-  const [beautyRoutines, setBeautyRoutines] = useLocalStorage("beauty_routines", DEFAULT_BEAUTY);
-  const [providers, setProviders] = useLocalStorage("providers", []);
-  const [programs, setPrograms] = useLocalStorage("programs", []);
-  const [mealPlan, setMealPlan] = useLocalStorage("meal_plan", {});
+  const [habits, setHabits] = useCloudState("habits_log", {});
+  const [habitList, setHabitList] = useCloudState("habit_list", DEFAULT_HABITS);
+  const [workoutPlan, setWorkoutPlan] = useCloudState("workout_plan_v2", DEFAULT_SCHEDULE.map(d => ({ ...d })));
+  const [workoutDone, setWorkoutDone] = useCloudState("workout_done", {});
+  const [protein, setProtein] = useCloudState("protein_log", {});
+  const [waterLog, setWaterLog] = useCloudState("water_log", {});
+  const [milesLog, setMilesLog] = useCloudState("miles_log", {});
+  const [challengeStart] = useCloudState("challenge_start", todayKey());
+  const [measurements, setMeasurements] = useCloudState("measurements", []);
+  const [beautyLog, setBeautyLog] = useCloudState("beauty_log", {});
+  const [beautyRoutines, setBeautyRoutines] = useCloudState("beauty_routines", DEFAULT_BEAUTY);
+  const [providers, setProviders] = useCloudState("providers", []);
+  const [programs, setPrograms] = useCloudState("programs", []);
+  const [mealPlan, setMealPlan] = useCloudState("meal_plan", {});
 
   const shared = { habits, setHabits, habitList, setHabitList, protein, setProtein, waterLog, setWaterLog, milesLog, setMilesLog, challengeStart, measurements, setMeasurements, workoutPlan, setWorkoutPlan, workoutDone, setWorkoutDone, beautyLog, setBeautyLog, beautyRoutines, setBeautyRoutines, providers, setProviders, programs, setPrograms };
 

@@ -47,11 +47,24 @@ const BF_GOAL = 35;
 const MILES_GOAL = 30;
 const CHALLENGE_DAYS = 30;
 
-const todayKey = () => new Date().toISOString().split("T")[0];
-const todayDayIdx = () => new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
-
-// ── HOOKS ───────────────────────────────────────────────────
+// ── DATE HELPERS (all local time) ───────────────────────────
+// ymd() reads the LOCAL calendar date, so day buckets roll over at
+// your local midnight — not UTC midnight (which was ~8pm in Atlanta).
+const ymd = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// parseYmd() turns a "YYYY-MM-DD" string back into a LOCAL date (midnight),
+// avoiding the UTC shift that new Date("YYYY-MM-DD") would cause.
+const parseYmd = (s) => new Date(s + "T00:00:00");
+const todayKey = () => ymd(new Date());
+const todayDayIdx = () => (new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
+// weekStartKey() = the local date of Monday for the week containing `date`.
+const weekStartKey = (date = new Date()) => {
+  const d = new Date(date);
+  const day = (d.getDay() + 6) % 7; // 0 = Mon … 6 = Sun
+  d.setDate(d.getDate() - day);
+  return ymd(d);
+};
+const daysBetween = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 86400000);
 
 // ── SHARED COMPONENTS ───────────────────────────────────────
 function CardLabel({ children }) {
@@ -161,7 +174,7 @@ function TodayPage({ habits, setHabits, habitList, setHabitList, protein, setPro
   const getStreak = (id) => {
     let n = 0, d = new Date();
     while (true) {
-      const k = d.toISOString().split("T")[0];
+      const k = ymd(d);
       if (habits[k]?.[id]) { n++; d.setDate(d.getDate() - 1); } else break;
     }
     return n;
@@ -361,7 +374,15 @@ function FitnessPage({ workoutPlan, setWorkoutPlan, workoutDone, setWorkoutDone 
   const [editDraft, setEditDraft] = useState({ label: "", exercises: [] });
   const [newExercise, setNewExercise] = useState("");
 
-  const toggleWorkoutDone = (idx) => setWorkoutDone(prev => ({ ...prev, [idx]: !prev[idx] }));
+  // Workout completion is now scoped to the current week (Monday-anchored),
+  // so checkmarks clear automatically when a new week starts.
+  const wk = weekStartKey();
+  const thisWeek = workoutDone[wk] || {};
+
+  const toggleWorkoutDone = (idx) => setWorkoutDone(prev => ({
+    ...prev,
+    [wk]: { ...(prev[wk] || {}), [idx]: !(prev[wk]?.[idx]) },
+  }));
   const toggleExpand = (idx) => setExpandedDays(prev => ({ ...prev, [idx]: !prev[idx] }));
   const startEdit = (idx) => { setEditDraft({ label: workoutPlan[idx].label, exercises: [...workoutPlan[idx].exercises] }); setEditingDay(idx); setNewExercise(""); };
   const saveEdit = () => { setWorkoutPlan(prev => prev.map((d, i) => i === editingDay ? { ...d, label: editDraft.label, exercises: editDraft.exercises } : d)); setEditingDay(null); };
@@ -370,7 +391,7 @@ function FitnessPage({ workoutPlan, setWorkoutPlan, workoutDone, setWorkoutDone 
 
   const todayIdx = todayDayIdx();
   const todayWorkout = workoutPlan[todayIdx];
-  const todayDone = !!workoutDone[todayIdx];
+  const todayDone = !!thisWeek[todayIdx];
 
   return (
     <div style={pageStyle}>
@@ -423,7 +444,7 @@ function FitnessPage({ workoutPlan, setWorkoutPlan, workoutDone, setWorkoutDone 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {workoutPlan.map((w, idx) => {
               const isToday = idx === todayIdx;
-              const done = !!workoutDone[idx];
+              const done = !!thisWeek[idx];
               const expanded = !!expandedDays[idx];
               const isEditing = editingDay === idx;
 
@@ -507,9 +528,9 @@ function BeautyPage({ beautyLog, setBeautyLog, beautyRoutines, setBeautyRoutines
   const getNextDue = (routine) => {
     const last = beautyLog[routine.id];
     if (!last) return null;
-    const d = new Date(last);
+    const d = parseYmd(last);
     d.setDate(d.getDate() + routine.freqDays);
-    return d.toISOString().split("T")[0];
+    return ymd(d);
   };
 
   const getStatus = (routine) => {
@@ -883,7 +904,7 @@ function ProgressPage({ habits, habitList, protein, waterLog, measurements, setM
   const bfPct = latestMeas?.bf ? Math.round((latestMeas.bf / BF_GOAL) * 100) : 0;
   const last14 = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (13 - i));
-    return d.toISOString().split("T")[0];
+    return ymd(d);
   });
 
   function BarChart({ data, goal, color }) {
@@ -920,14 +941,14 @@ function ProgressPage({ habits, habitList, protein, waterLog, measurements, setM
     // Build exactly 28 days going back from today
     const grid = Array.from({ length: 28 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - (27 - i));
-      return d.toISOString().split("T")[0];
+      return ymd(d);
     });
 
     // Calculate streak
     const streak = (() => {
       let n = 0, d = new Date();
       while (true) {
-        const k = d.toISOString().split("T")[0];
+        const k = ymd(d);
         if (habits[k]?.[habitId]) { n++; d.setDate(d.getDate() - 1); } else break;
       }
       return n;
@@ -939,7 +960,7 @@ function ProgressPage({ habits, habitList, protein, waterLog, measurements, setM
     if (streak > 0) {
       const d = new Date();
       for (let i = 0; i < streak; i++) {
-        streakDates.add(d.toISOString().split("T")[0]);
+        streakDates.add(ymd(d));
         d.setDate(d.getDate() - 1);
       }
     }
@@ -1023,25 +1044,10 @@ function ProgressPage({ habits, habitList, protein, waterLog, measurements, setM
   }
 
   function WorkoutGrid({ workoutDone, workoutPlan }) {
-    const grid = Array.from({ length: 28 }, (_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - (27 - i));
-      return { date: d.toISOString().split("T")[0], dayIdx: ((d.getDay() + 6) % 7) };
-    });
-    const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
-
-    // Count streak of consecutive days with workoutDone
-    const streak = (() => {
-      let n = 0, d = new Date();
-      while (true) {
-        const dayIdx = (d.getDay() + 6) % 7;
-        const k = d.toISOString().split("T")[0];
-        const inGrid = grid.find(g => g.date === k);
-        if (inGrid && workoutDone[dayIdx]) { n++; d.setDate(d.getDate() - 7); } else break;
-      }
-      return n;
-    })();
-
-    const totalDone = Object.values(workoutDone).filter(Boolean).length;
+    // Read the current week's completion (Monday-anchored).
+    const wk = weekStartKey();
+    const thisWeek = workoutDone[wk] || {};
+    const totalDone = Object.values(thisWeek).filter(Boolean).length;
 
     return (
       <div>
@@ -1060,7 +1066,7 @@ function ProgressPage({ habits, habitList, protein, waterLog, measurements, setM
         {/* Day labels */}
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => {
-            const done = !!workoutDone[i];
+            const done = !!thisWeek[i];
             const isToday = i === todayDayIdx();
             const plan = workoutPlan[i];
             return (
@@ -1084,9 +1090,9 @@ function ProgressPage({ habits, habitList, protein, waterLog, measurements, setM
 
   // Miles calendar
   const milesDays = Array.from({ length: CHALLENGE_DAYS }, (_, i) => {
-    const d = new Date(challengeStart || todayKey());
+    const d = parseYmd(challengeStart || todayKey());
     d.setDate(d.getDate() + i);
-    return d.toISOString().split("T")[0];
+    return ymd(d);
   });
   const totalMiles = Object.values(milesLog).reduce((a, v) => a + v, 0);
 
